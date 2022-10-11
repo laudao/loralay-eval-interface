@@ -20,14 +20,15 @@ try:
 except LookupError:
     nltk.download('stopwords')
 
-all_stopwords = set(stopwords.words('english'))
+en_stopwords = set(stopwords.words('english'))
+fr_stopwords = set(stopwords.words('french'))
 
-def highlight_in_gold_sample(sent, gold_summary):
+def highlight_in_gold_sample(sent, gold_summary, stopwords):
     words_in_sent = sent.lower().split()
     gold_words = gold_summary.split()
     annotated_gold_summ = []
     for w in gold_words:
-        if w.lower() not in all_stopwords:
+        if w.lower() not in stopwords:
             if w.lower() in words_in_sent:
                 annotated_gold_summ.append((w + " ", ""))
             else:
@@ -67,7 +68,7 @@ def create_sliders(model_name, doc_id):
     relevance = st.slider('Relevance', 0., 5., 2.5, 0.1, key=f'{model_name}_{doc_id}_rel', on_change=update_slider_rel)
 
 
-def loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples, doc_id):
+def loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples, doc_id, samples_lang):
     st.title("LoRaLay Evaluation Interface")
 
     all_doc_ids = tuple([sample_id for sample_id, _ in gold_samples.items()])
@@ -125,11 +126,18 @@ def loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples
         st.info("Use the sliders below to evaluate the generated summary.")
         create_sliders("bigbird", doc_id)
 
+    if samples_lang[doc_id] == "en":
+        stopwords = en_stopwords
+    else:
+        assert samples_lang[doc_id] == "fr"
+        stopwords = fr_stopwords
+
     for sent_idx in range(bigbird_n_sent):
         if st.session_state[f'chk_bigbird_{doc_id}_{sent_idx}']:
             annotated_gold_summ = highlight_in_gold_sample(
                 bigbird_samples[doc_id][sent_idx],
-                gold_samples[doc_id] 
+                gold_samples[doc_id],
+                stopwords
             )
             with placeholder_gold.container():
                 st.subheader("Abstract")
@@ -146,7 +154,8 @@ def loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples
         if st.session_state[f'chk_layout_bigbird_{doc_id}_{sent_idx}']:
             annotated_gold_summ = highlight_in_gold_sample(
                 layout_bigbird_samples[doc_id][sent_idx],
-                gold_samples[doc_id] 
+                gold_samples[doc_id],
+                stopwords
             )
             with placeholder_gold.container():
                 st.subheader("Abstract")
@@ -170,26 +179,32 @@ def loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples
 
 def load_samples(samples, is_gold=False):
     samples = [json.loads(sample) for sample in samples]
+    if is_gold:
+        samples_lang = {
+            sample["id"]: sample["lang"] for sample in samples
+        }
+    else:
+        samples_lang = None
     samples = {
         sample["id"]: sample["abstract"] if is_gold else sent_tokenize(sample["output"]) for sample in samples
     }
-    return samples
+    return samples, samples_lang
 
 
 if __name__ == "__main__":
 
     with open("samples/gold.txt") as f:
         gold_samples = f.readlines()
-    with open("samples/bigbird-pegasus.txt") as f:
+    with open("samples/bigbird.txt") as f:
         bigbird_samples = f.readlines()
-    with open("samples/layout-bigbird-pegasus.txt") as f:
+    with open("samples/layout-bigbird.txt") as f:
         layout_bigbird_samples = f.readlines()
 
-    gold_samples = load_samples(gold_samples, is_gold=True)
-    bigbird_samples = load_samples(bigbird_samples)
-    layout_bigbird_samples = load_samples(layout_bigbird_samples)
+    gold_samples, samples_lang = load_samples(gold_samples, is_gold=True)
+    bigbird_samples, _ = load_samples(bigbird_samples)
+    layout_bigbird_samples, _ = load_samples(layout_bigbird_samples)
 
     all_doc_ids = tuple([sample_id for sample_id, _ in gold_samples.items()])
-    all_doc_ids = sorted(all_doc_ids)
+    # all_doc_ids = sorted(all_doc_ids)
 
-    loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples, all_doc_ids[0])
+    loralay_eval_interface(gold_samples, bigbird_samples, layout_bigbird_samples, all_doc_ids[0], samples_lang)
