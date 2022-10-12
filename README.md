@@ -1,3 +1,4 @@
+![Alt text](/image.png?raw=true "Optional Title")
 
 ## Environment Setup
 ~~~shell
