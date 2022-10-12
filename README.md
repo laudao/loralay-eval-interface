@@ -12,3 +12,8 @@ $ pip install -r requirements.txt
 ~~~shell
 $ streamlit run main.py
 ~~~
+
+To overwrite previous evaluation:
+~~~shell
+$ streamlit run main.py -- --overwrite_eval
+~~~
