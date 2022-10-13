@@ -150,7 +150,7 @@ def _display_placeholder_model(
             if sent_idx == 0:
                 st.markdown("\n")
                 st.markdown("\n")
-            st.checkbox("", key=f'chk_{model_name}_{doc_id}_{sent_idx}', on_change=_update_gen_checkbox, args=(sent_idx, model_name))
+            st.checkbox("", key=f'chk_{model_name}_{doc_id}_{sent_idx}', on_change=_update_gen_checkbox, args=(sent_idx,))
         with second_col:
             if sent_idx == 0:
                 st.markdown("**Sentence**")
