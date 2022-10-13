@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import os
+import random
 import shutil 
 
 import streamlit as st
@@ -25,11 +26,11 @@ except LookupError:
 
 EN_STOPWORDS = set(stopwords.words('english'))
 FR_STOPWORDS = set(stopwords.words('french'))
-SLIDER_STEP=1.
-SLIDER_DEFAULT_VAL=0.
-SLIDER_MIN_VAL, SLIDER_MAX_VAL = 0., 5.
-PREC_VALUES=(0, 25, 50, 75, 100)
-REC_VALUES=(0, 25, 50, 75, 100)
+CCFR_DEFAULT_VAL = -1
+PREC_REC_DEFAULT_VAL = -1
+CCFR_VALUES = (CCFR_DEFAULT_VAL, 0, 1, 2, 3, 4, 5)
+PREC_VALUES = (PREC_REC_DEFAULT_VAL, 0, 25, 50, 75, 100)
+REC_VALUES = (PREC_REC_DEFAULT_VAL, 0, 25, 50, 75, 100)
 
 
 def _highlight_in_gold_sample(sent, gold_summary, stopwords):
@@ -54,65 +55,66 @@ def _highlight_in_gold_sample(sent, gold_summary, stopwords):
     return annotated_gold_summ
 
 
-def _create_sliders(model_name, doc_id, results_dir):
-    def update_slider_coh():
+def _create_radios(model_name, doc_id, results_dir):
+    def update_radio_coh():
         st.session_state[f'{model_name}_{doc_id}_coh_updated'] = st.session_state[f'{model_name}_{doc_id}_coh'] 
         with open(os.path.join(results_dir, f"{model_name}_{doc_id}_coh"), 'a') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_coh']) + "\n")
 
-    def update_slider_con():
+    def update_radio_con():
         st.session_state[f'{model_name}_{doc_id}_con_updated'] = st.session_state[f'{model_name}_{doc_id}_con'] 
         with open(os.path.join(results_dir, f"{model_name}_{doc_id}_con"), 'a') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_con']) + "\n")
 
-    def update_slider_flu():
+    def update_radio_flu():
         st.session_state[f'{model_name}_{doc_id}_flu_updated'] = st.session_state[f'{model_name}_{doc_id}_flu'] 
         with open(os.path.join(results_dir, f"{model_name}_{doc_id}_flu"), 'a') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_flu']) + "\n")
 
-    def update_slider_rel():
-        print("updating")
+    def update_radio_rel():
         st.session_state[f'{model_name}_{doc_id}_rel_updated'] = st.session_state[f'{model_name}_{doc_id}_rel'] 
         with open(os.path.join(results_dir, f"{model_name}_{doc_id}_rel"), 'a') as fw:
-            print("here")
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_rel']) + "\n")
 
-    st.slider(
-        'Coherence', 
-        SLIDER_MIN_VAL, 
-        SLIDER_MAX_VAL, 
-        SLIDER_DEFAULT_VAL if f"{model_name}_{doc_id}_coh_updated" not in st.session_state else st.session_state[f'{model_name}_{doc_id}_coh_updated'],
-        SLIDER_STEP, 
-        key=f'{model_name}_{doc_id}_coh', 
-        on_change=update_slider_coh
-    )
-    st.slider(
-        'Consistency', SLIDER_MIN_VAL, 
-        SLIDER_MAX_VAL, 
-        SLIDER_DEFAULT_VAL if f"{model_name}_{doc_id}_con_updated" not in st.session_state else st.session_state[f'{model_name}_{doc_id}_con_updated'],
-        SLIDER_STEP, 
-        key=f'{model_name}_{doc_id}_con', 
-        on_change=update_slider_con
-    )
-    st.slider(
-        'Fluency', SLIDER_MIN_VAL, 
-        SLIDER_MAX_VAL, 
-        SLIDER_DEFAULT_VAL if f"{model_name}_{doc_id}_flu_updated" not in st.session_state else st.session_state[f'{model_name}_{doc_id}_flu_updated'],
-        SLIDER_STEP,  
-        key=f'{model_name}_{doc_id}_flu', 
-        on_change=update_slider_flu
-    )
-    st.slider(
-        'Relevance', SLIDER_MIN_VAL, 
-        SLIDER_MAX_VAL, 
-        SLIDER_DEFAULT_VAL if f"{model_name}_{doc_id}_rel_updated" not in st.session_state else st.session_state[f'{model_name}_{doc_id}_rel_updated'], 
-        SLIDER_STEP,  
-        key=f'{model_name}_{doc_id}_rel', 
-        on_change=update_slider_rel
-    )
+    _, center, _ = st.columns([3, 8, 1])
+
+    with center:
+        st.radio(
+            'Coherence', 
+            CCFR_VALUES, 
+            index=0 if f'{model_name}_{doc_id}_coh_updated' not in st.session_state else CCFR_VALUES.index(st.session_state[f'{model_name}_{doc_id}_coh_updated']),
+            key=f'{model_name}_{doc_id}_coh', 
+            on_change=update_radio_coh,
+            horizontal=True,
+        )
+        st.radio(
+            'Consistency',
+            CCFR_VALUES, 
+            index=0 if f'{model_name}_{doc_id}_con_updated' not in st.session_state else CCFR_VALUES.index(st.session_state[f'{model_name}_{doc_id}_con_updated']),
+            key=f'{model_name}_{doc_id}_con', 
+            on_change=update_radio_con,
+            horizontal=True,
+        )
+        st.radio(
+            'Fluency', 
+            CCFR_VALUES, 
+            index=0 if f'{model_name}_{doc_id}_flu_updated' not in st.session_state else CCFR_VALUES.index(st.session_state[f'{model_name}_{doc_id}_flu_updated']),
+            key=f'{model_name}_{doc_id}_flu', 
+            on_change=update_radio_flu,
+            horizontal=True,
+        )
+        st.radio(
+            'Relevance', 
+            CCFR_VALUES, 
+            index=0 if f'{model_name}_{doc_id}_rel_updated' not in st.session_state else CCFR_VALUES.index(st.session_state[f'{model_name}_{doc_id}_rel_updated']),
+            key=f'{model_name}_{doc_id}_rel', 
+            on_change=update_radio_rel,
+            horizontal=True,
+        )
 
 def _display_placeholder_model(
     model_name, 
+    is_model_a,
     gen_samples, 
     doc_id, 
     bigbird_n_sent, 
@@ -120,21 +122,25 @@ def _display_placeholder_model(
     prec_results_dir,
     rec_results_dir,
 ):
-    if model_name == "bigbird":
+    if is_model_a:
         # st.subheader("Summary generated by BigBird")
         st.subheader("Summary generated by model A")
     else:
         # st.subheader("Summary generated by BigBird+Layout")
         st.subheader("Summary generated by model B")
-    st.info("Summary is split by sentence. Click on any sentence to highlight the corresponding words in the ground-truth abstract. Set precision and recall %.")
+    st.info("""
+        Summary is split by sentence. 
+        Click on any sentence to highlight the corresponding words in the ground-truth abstract. 
+        Evaluate using per-sentence precision, recall, coherence, consistency, fluency, and relevance.
+    """)
     
     def _update_gen_checkbox(sent_idx):
         for i in range(bigbird_n_sent):
             if model_name != "bigbird" or i != sent_idx:
                 st.session_state[f"chk_bigbird_{doc_id}_{i}"] = False
         for i in range(layout_bigbird_n_sent):
-            if model_name != "layout_bigbird" or i != sent_idx:
-                st.session_state[f"chk_layout_bigbird_{doc_id}_{i}"] = False
+            if model_name != "layout-bigbird" or i != sent_idx:
+                st.session_state[f"chk_layout-bigbird_{doc_id}_{i}"] = False
 
     def _update_prec_eval(sent_idx):
         if f"{model_name}_{doc_id}_sent{sent_idx}_prec_updated" not in st.session_state:
@@ -145,7 +151,7 @@ def _display_placeholder_model(
 
 
     for sent_idx, sent in enumerate(gen_samples[doc_id]):
-        first_col, second_col, third_col = st.columns([1, 5, 5])
+        first_col, second_col, third_col = st.columns([1, 6, 7])
         with first_col:
             if sent_idx == 0:
                 st.markdown("\n")
@@ -157,25 +163,15 @@ def _display_placeholder_model(
             st.markdown(sent)
         with third_col:
             st.radio(
-                "Precision %", 
+                "Precision (%)", 
                 PREC_VALUES, 
                 key=f'{model_name}_{doc_id}_sent{sent_idx}_prec', 
                 on_change=_update_prec_eval, 
                 args=(sent_idx,),
-                index=PREC_VALUES[0] if f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated' not in st.session_state else PREC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated']),
+                index=0 if f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated' not in st.session_state else PREC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated']),
                 label_visibility="visible" if sent_idx == 0 else "collapsed",
                 horizontal=True,
             )
-        # with fourth_col:
-        #     st.selectbox(
-        #         "Recall %", 
-        #         REC_VALUES, 
-        #         key=f'{model_name}_{doc_id}_sent{sent_idx}_rec', 
-        #         on_change=_update_rec_eval, 
-        #         args=(sent_idx, model_name, rec_results_dir),
-        #         index=REC_VALUES[0] if f'{model_name}_{doc_id}_sent{sent_idx}_rec_updated' not in st.session_state else REC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_rec_updated']),
-        #         label_visibility="visible" if sent_idx == 0 else "collapsed",
-        #     )
 
     def _update_rec_eval():
         if f"{model_name}_{doc_id}_rec_updated" not in st.session_state:
@@ -184,41 +180,49 @@ def _display_placeholder_model(
         with open(os.path.join(rec_results_dir, f"{model_name}_{doc_id}_rec"), 'a') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_rec']) + "\n")
 
-    st.radio(
-        "Recall %",
-        REC_VALUES,
-        key=f'{model_name}_{doc_id}_rec',
-        on_change=_update_rec_eval, 
-        index=REC_VALUES[0] if f'{model_name}_{doc_id}_rec_updated' not in st.session_state else REC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_rec_updated']),
-        horizontal=True,
-    ) 
+    _, center, _ = st.columns([3, 8, 1])
+    with center:
+        st.radio(
+            "Recall (%)",
+            REC_VALUES,
+            key=f'{model_name}_{doc_id}_rec',
+            on_change=_update_rec_eval, 
+            index=0 if f'{model_name}_{doc_id}_rec_updated' not in st.session_state else REC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_rec_updated']),
+            horizontal=True,
+        ) 
 
-def load_results_in_session_state(slider_results_dir, prec_results_dir, rec_results_dir):
-    slider_results_files = os.listdir(slider_results_dir)
+def load_results_in_session_state(ccfr_results_dir, prec_results_dir, rec_results_dir, unable_to_eval_file):
+    ccfr_results_files = os.listdir(ccfr_results_dir)
     prec_results_files = os.listdir(prec_results_dir)
     rec_results_files = os.listdir(rec_results_dir)
 
-    for filename in slider_results_files:
+    for filename in ccfr_results_files:
         model_name, doc_id, cat = filename.split("_")
-        with open(os.path.join(slider_results_dir, filename), 'r') as f:
+        with open(os.path.join(ccfr_results_dir, filename), 'r') as f:
             lines = f.readlines()
-        last_result = float(lines[-1])
+        last_result = int(lines[-1])
         st.session_state[f'{model_name}_{doc_id}_{cat}_updated'] = last_result
 
     for filename in prec_results_files:
         model_name, doc_id, sent_idx, _ = filename.split("_")
         with open(os.path.join(prec_results_dir, filename), 'r') as f:
             lines = f.readlines()
-        last_result = float(lines[-1])
+        last_result = int(lines[-1])
         st.session_state[f'{model_name}_{doc_id}_{sent_idx}_prec_updated'] = last_result
 
     for filename in rec_results_files:
         model_name, doc_id, _ = filename.split("_")
         with open(os.path.join(rec_results_dir, filename), 'r') as f:
             lines = f.readlines()
-        last_result = float(lines[-1])
+        last_result = int(lines[-1])
         st.session_state[f'{model_name}_{doc_id}_rec_updated'] = last_result
 
+    if os.path.isfile(unable_to_eval_file):
+        with open(unable_to_eval_file, 'r') as f:
+            unable_to_eval_doc_ids = f.readlines()
+        unable_to_eval_doc_ids = [doc_id.strip() for doc_id in unable_to_eval_doc_ids]
+        for doc_id in unable_to_eval_doc_ids:
+            st.session_state[f'unable_to_eval_{doc_id}_checked'] = True 
 
 
 def loralay_eval_interface(
@@ -228,16 +232,24 @@ def loralay_eval_interface(
     doc_id, 
     all_doc_ids,
     samples_lang,
-    slider_results_dir,
+    ccfr_results_dir,
     prec_results_dir,
     rec_results_dir,
+    unable_to_eval_file,
+    models_A,
+    samples_titles,
+    samples_urls,
 ):
     st.title("LoRaLay Evaluation Interface")
+    
+    # Uncheck all radios
+    st.markdown("""<style>div[role="radiogroup"] >  :first-child{
+        display: none !important;
+    }</style>""", unsafe_allow_html=True)
 
-    load_results_in_session_state(slider_results_dir, prec_results_dir, rec_results_dir)
 
-    # all_doc_ids = tuple([sample_id for sample_id, _ in gold_samples.items()])
-    # all_doc_ids = sorted(all_doc_ids)
+    load_results_in_session_state(ccfr_results_dir, prec_results_dir, rec_results_dir, unable_to_eval_file)
+
     last_idx = len(all_doc_ids) - 1
 
     if "doc_idx" not in st.session_state:
@@ -247,10 +259,21 @@ def loralay_eval_interface(
         with open("./last_doc_id.txt", 'w') as fw:
             fw.write(doc_id)
 
-    st.header(f"Document {doc_id} ({st.session_state.doc_idx + 1}/{len(all_doc_ids)})")        
+    if samples_lang[doc_id] == "en":
+        stopwords = EN_STOPWORDS
+    else:
+        assert samples_lang[doc_id] == "fr"
+        stopwords = FR_STOPWORDS
+
+    st.header(f"Document {doc_id} ({st.session_state.doc_idx + 1}/{len(all_doc_ids)})")
+    if doc_id in samples_titles:
+        st.write(f"*{samples_titles[doc_id]}*")        
+    if doc_id in samples_urls:
+        st.write(f"[Link to PDF]({samples_urls[doc_id]})")
+
         
     placeholder_gold = st.empty()
-    placeholder_bigbird, placeholder_layout_bigbird = st.tabs(["Model A", "Model B"])
+    placeholder_A, placeholder_B = st.tabs(["Model A", "Model B"])
 
     with placeholder_gold.container():
         st.subheader("Ground-truth abstract")
@@ -259,29 +282,38 @@ def loralay_eval_interface(
     bigbird_n_sent = len(bigbird_samples[doc_id])
     layout_bigbird_n_sent = len(layout_bigbird_samples[doc_id])
 
-    with placeholder_bigbird.container():
+    if models_A[st.session_state.doc_idx] == "bigbird":
+        model_A = "bigbird"
+        model_A_samples = bigbird_samples
+        model_A_n_sent = bigbird_n_sent
+        model_B = "layout-bigbird"
+        model_B_samples = layout_bigbird_samples
+        model_B_n_sent = layout_bigbird_n_sent
+    else:
+        model_A = "layout-bigbird"
+        model_A_samples = layout_bigbird_samples
+        model_A_n_sent = layout_bigbird_n_sent
+        model_B = "bigbird"
+        model_B_samples = bigbird_samples
+        model_B_n_sent = bigbird_n_sent
+
+    with placeholder_A.container():
         _display_placeholder_model(
-            "bigbird", 
-            bigbird_samples, 
+            model_A, 
+            True,
+            model_A_samples,
             doc_id, 
             bigbird_n_sent, 
             layout_bigbird_n_sent,
             prec_results_dir,
             rec_results_dir,
         )
-        st.info("Use the sliders below to evaluate the generated summary.")
-        _create_sliders("bigbird", doc_id, slider_results_dir)
+        _create_radios(model_A, doc_id, ccfr_results_dir)
 
-    if samples_lang[doc_id] == "en":
-        stopwords = EN_STOPWORDS
-    else:
-        assert samples_lang[doc_id] == "fr"
-        stopwords = FR_STOPWORDS
-
-    for sent_idx in range(bigbird_n_sent):
-        if st.session_state[f'chk_bigbird_{doc_id}_{sent_idx}']:
+    for sent_idx in range(model_A_n_sent):
+        if st.session_state[f'chk_{model_A}_{doc_id}_{sent_idx}']:
             annotated_gold_summ = _highlight_in_gold_sample(
-                bigbird_samples[doc_id][sent_idx],
+                model_A_samples[doc_id][sent_idx],
                 gold_samples[doc_id],
                 stopwords
             )
@@ -290,24 +322,24 @@ def loralay_eval_interface(
                 annotated_text(*annotated_gold_summ)
     
 
-    with placeholder_layout_bigbird.container():
+    with placeholder_B.container():
         _display_placeholder_model(
-            "layout_bigbird", 
-            layout_bigbird_samples, 
+            model_B, 
+            False,
+            model_B_samples, 
             doc_id, 
             bigbird_n_sent, 
             layout_bigbird_n_sent,
             prec_results_dir,
             rec_results_dir
         )
-        st.info("Use the sliders below to evaluate the generated summary.")
-        _create_sliders("layout_bigbird", doc_id, slider_results_dir)
+        _create_radios(model_B, doc_id, ccfr_results_dir)
 
                 
-    for sent_idx in range(layout_bigbird_n_sent):
-        if st.session_state[f'chk_layout_bigbird_{doc_id}_{sent_idx}']:
+    for sent_idx in range(model_B_n_sent):
+        if st.session_state[f'chk_{model_B}_{doc_id}_{sent_idx}']:
             annotated_gold_summ = _highlight_in_gold_sample(
-                layout_bigbird_samples[doc_id][sent_idx],
+                model_B_samples[doc_id][sent_idx],
                 gold_samples[doc_id],
                 stopwords
             )
@@ -315,6 +347,37 @@ def loralay_eval_interface(
                 st.subheader("Abstract")
                 annotated_text(*annotated_gold_summ)
 
+    def _update_unable_to_eval(doc_id):
+        if os.path.isfile(unable_to_eval_file):
+            with open(unable_to_eval_file, 'r') as f:
+                unable_to_eval_doc_ids = f.readlines()
+            unable_to_eval_doc_ids = [doc_id.strip() for doc_id in unable_to_eval_doc_ids]
+        else:
+            unable_to_eval_doc_ids = []
+
+        if (
+            f"unable_to_eval_{doc_id}_checked" not in st.session_state
+            or not st.session_state[f"unable_to_eval_{doc_id}_checked"]
+        ):
+            st.session_state[f"unable_to_eval_{doc_id}_checked"] = True 
+            unable_to_eval_doc_ids.append(doc_id)
+        else:
+            st.session_state[f"unable_to_eval_{doc_id}_checked"] = False
+            assert doc_id in unable_to_eval_doc_ids
+            unable_to_eval_doc_ids.remove(doc_id)
+
+        with open(unable_to_eval_file, 'w') as fw:
+            for doc_id in unable_to_eval_doc_ids:
+                fw.write(doc_id + "\n")       
+     
+
+    st.checkbox(
+        "I am unable to evaluate this document.", 
+        value=True if f'unable_to_eval_{doc_id}_checked' in st.session_state and st.session_state[f'unable_to_eval_{doc_id}_checked'] else False,
+        key=f'chk_unable_to_eval_{doc_id}', 
+        on_change=_update_unable_to_eval, 
+        args=(doc_id,)
+    )
 
     def go_to_next():
         st.session_state.doc_idx += 1
@@ -327,7 +390,30 @@ def loralay_eval_interface(
             st.button('Previous', on_click=go_to_previous)
     with right:
         if st.session_state.doc_idx < last_idx:
-            st.button('Next', on_click=go_to_next)
+            next_is_disabled = False 
+            for bigbird_sent_idx, layout_bigbird_sent_idx in zip(range(bigbird_n_sent), range(layout_bigbird_n_sent)):
+                if f"bigbird_{doc_id}_sent{bigbird_sent_idx}_prec_updated" not in st.session_state:
+                    next_is_disabled = True 
+                    break
+                if f"layout-bigbird_{doc_id}_sent{layout_bigbird_sent_idx}_prec_updated" not in st.session_state:
+                    next_is_disabled = True 
+                    break
+            if f"bigbird_{doc_id}_rec_updated" not in st.session_state:
+                next_is_disabled = True 
+            if f"layout-bigbird_{doc_id}_rec_updated" not in st.session_state:
+                next_is_disabled = True 
+            for cat in ["coh", "con", "flu", "rel"]:
+                if f"bigbird_{doc_id}_{cat}_updated" not in st.session_state:
+                    next_is_disabled = True 
+                    break
+                if f"layout-bigbird_{doc_id}_{cat}_updated" not in st.session_state:
+                    next_is_disabled = True 
+                    break
+            
+            if f'unable_to_eval_{doc_id}_checked' in st.session_state and st.session_state[f'unable_to_eval_{doc_id}_checked']:
+                next_is_disabled = False
+            st.button('Next', on_click=go_to_next, disabled=next_is_disabled)
+
         
 
 def load_samples(samples, is_gold=False):
@@ -336,12 +422,24 @@ def load_samples(samples, is_gold=False):
         samples_lang = {
             sample["id"]: sample["lang"] for sample in samples
         }
+        # samples_titles = {
+        #     sample["id"]: sample["title"] for sample in samples
+        # }
+        samples_titles = dict()
+        samples_urls = dict()
+        for sample in samples: 
+            if "title" in sample:
+                samples_titles[sample["id"]] = sample["title"]
+            if "pdf_url" in sample:
+                samples_urls[sample["id"]] = sample["pdf_url"]
     else:
         samples_lang = None
+        samples_titles = None
+        samples_urls = None 
     samples = {
-        sample["id"]: sample["abstract"] if is_gold else sent_tokenize(sample["output"]) for sample in samples
+        sample["id"]: sample["abstract"].strip() if is_gold else sent_tokenize(sample["output"].strip()) for sample in samples
     }
-    return samples, samples_lang
+    return samples, (samples_lang, samples_titles, samples_urls)
 
 
 if __name__ == "__main__":
@@ -363,6 +461,11 @@ if __name__ == "__main__":
         default="samples/layout-bigbird.txt",
     )
     parser.add_argument(
+        "--path_to_models_A",
+        type=str,
+        default="samples/models_A.txt",
+    )
+    parser.add_argument(
         "--results_dir",
         type=str,
         default="eval_results",
@@ -379,56 +482,51 @@ if __name__ == "__main__":
         bigbird_samples = f.readlines()
     with open(args.path_to_layout_bigbird) as f:
         layout_bigbird_samples = f.readlines()
+    with open(args.path_to_models_A) as f:
+        models_A = f.readlines()
 
-    gold_samples, samples_lang = load_samples(gold_samples, is_gold=True)
+    gold_samples, (samples_lang, samples_titles, samples_urls) = load_samples(gold_samples, is_gold=True)
     bigbird_samples, _ = load_samples(bigbird_samples)
-    layout_bigbird_samples, _ = load_samples(layout_bigbird_samples)
+    layout_bigbird_samples,  _ = load_samples(layout_bigbird_samples)
+    models_A = [model.strip() for model in models_A]
 
     all_doc_ids = tuple([sample_id for sample_id, _ in gold_samples.items()])
     # all_doc_ids = sorted(all_doc_ids)
 
-    slider_results_dir = os.path.join(args.results_dir, "slider_outputs")
+    ccfr_results_dir = os.path.join(args.results_dir, "ccfr_outputs")
     prec_results_dir = os.path.join(args.results_dir, "precision_outputs")
     rec_results_dir = os.path.join(args.results_dir, "recall_outputs")
+    unable_to_eval_file = os.path.join(args.results_dir, "unable_to_eval.txt")
 
     @st.cache
     def prepare_results_dir():
         if os.path.isdir(args.results_dir):
             if args.overwrite_eval:
-                if  (
-                    (
-                        os.path.isdir(slider_results_dir) and len(os.listdir(slider_results_dir)) > 0 
-                    ) or 
-                    (
-                        os.path.isdir(prec_results_dir) and len(os.listdir(prec_results_dir)) > 0
-                    ) 
-                    or 
-                    (
-                        os.path.isdir(rec_results_dir) and len(os.listdir(rec_results_dir)) > 0
-                    ) 
-                ):
-                    if len(os.listdir(slider_results_dir)) > 0:
-                        shutil.rmtree(slider_results_dir)
-                    if len(os.listdir(prec_results_dir)) > 0:
-                        shutil.rmtree(prec_results_dir)
-                    if len(os.listdir(rec_results_dir)) > 0:
-                        shutil.rmtree(rec_results_dir)
+               
+                if os.path.isdir(ccfr_results_dir):
+                    shutil.rmtree(ccfr_results_dir)
+                if os.path.isdir(prec_results_dir):
+                    shutil.rmtree(prec_results_dir)
+                if os.path.isdir(rec_results_dir):
+                    shutil.rmtree(rec_results_dir)
                 
-                    os.makedirs(slider_results_dir)
-                    os.makedirs(prec_results_dir)
-                    os.makedirs(rec_results_dir)
+                os.makedirs(ccfr_results_dir)
+                os.makedirs(prec_results_dir)
+                os.makedirs(rec_results_dir)
                 if os.path.isfile("./last_doc_id.txt"):
                     os.remove("./last_doc_id.txt")
+                if os.path.isfile(unable_to_eval_file):
+                    os.remove(unable_to_eval_file)
             else:
-                if not os.path.isdir(slider_results_dir):
-                    os.makedirs(slider_results_dir)
+                if not os.path.isdir(ccfr_results_dir):
+                    os.makedirs(ccfr_results_dir)
                 if not os.path.isdir(prec_results_dir):
                     os.makedirs(prec_results_dir)
                 if not os.path.isdir(rec_results_dir):
                     os.makedirs(rec_results_dir)
         else:
             os.mkdir(args.results_dir)
-            os.makedirs(slider_results_dir)
+            os.makedirs(ccfr_results_dir)
             os.makedirs(prec_results_dir)
             os.makedirs(rec_results_dir)
     
@@ -447,7 +545,11 @@ if __name__ == "__main__":
         doc_id, 
         all_doc_ids,
         samples_lang,
-        slider_results_dir,
+        ccfr_results_dir,
         prec_results_dir,
         rec_results_dir,
+        unable_to_eval_file,
+        models_A,
+        samples_titles,
+        samples_urls
     )
