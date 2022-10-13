@@ -3,7 +3,7 @@ import datetime
 import json
 import os
 import shutil 
-
+from components import init_components, st_highlightable_text
 import streamlit as st
 from st_click_detector import click_detector
 from annotated_text import annotated_text
@@ -111,6 +111,7 @@ def _create_sliders(model_name, doc_id, results_dir):
         on_change=update_slider_rel
     )
 
+
 def _display_placeholder_model(
     model_name, 
     gen_samples, 
@@ -142,7 +143,6 @@ def _display_placeholder_model(
         st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated'] = st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] 
         with open(os.path.join(prec_results_dir, f"{model_name}_{doc_id}_sent{sent_idx}_prec"), 'a') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec']) + "\n")
-
 
     for sent_idx, sent in enumerate(gen_samples[doc_id]):
         first_col, second_col, third_col = st.columns([1, 5, 5])
@@ -255,6 +255,11 @@ def loralay_eval_interface(
     with placeholder_gold.container():
         st.subheader("Ground-truth abstract")
         st.write(gold_samples[doc_id])
+        text = gold_samples[doc_id].split()
+
+        highlighted = st_highlightable_text(text, [ix < 10 for ix in range(len(text))], ["consider", "coupled", "gravity"], key="gold-abstract")
+        print("Highlighted words", highlighted)
+
 
     bigbird_n_sent = len(bigbird_samples[doc_id])
     layout_bigbird_n_sent = len(layout_bigbird_samples[doc_id])
@@ -371,7 +376,15 @@ if __name__ == "__main__":
         "--overwrite_eval",
         action="store_true", 
     )
+    parser.add_argument(
+        "--dev",
+        action="store_true", 
+        help="Runs in development mode (frontend)"
+    )
     args = parser.parse_args()
+
+
+    init_components(args.dev)
 
     with open(args.path_to_gold) as f:
         gold_samples = f.readlines()
