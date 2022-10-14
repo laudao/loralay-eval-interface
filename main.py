@@ -171,6 +171,10 @@ def _display_placeholder_model(
                 colored_words, 
                 key=f"h_{model_name}_{doc_id}_{sent_idx}"
             )
+            # st.write("You selected the following generated sentence: ")
+            # st.markdown(f"*{gen_samples[doc_id][sent_idx]}*")
+            st.markdown("*You selected the following generated sentence:*")
+            st.info(gen_samples[doc_id][sent_idx])
             return highlighted
 
     def _highlight(sent_idx, gen):
@@ -218,14 +222,10 @@ def _display_placeholder_model(
                         gen_gold_results_dir
                     )
                     updated = True
-                # st.session_state[f"{doc_id}_last_checked"] = model_name + "_" + str(sent_idx)
         with second_col:
             if sent_idx == 0:
                 st.markdown("**Sentence**")
-            # st.markdown(sent)
-            # highlighted_gen = st_highlightable_text(
-            #     sent.split(), [False for _ in range(len(sent.split()))], [], key=f"h_{model_name}_{doc_id}_{sent_idx}_gen"
-            # )
+            
             if st.session_state[f"chk_{model_name}_{doc_id}_{sent_idx}"]:
                 highlighted_gen = _highlight(sent_idx, sent)
                 if highlighted_gen is not None:
@@ -244,12 +244,16 @@ def _display_placeholder_model(
                 st.markdown(sent)
         with third_col:
             if sent_idx == 0:
-                st.markdown("**Precision**")
+                st.markdown("**Precision (%)**")
             if f'{model_name}_{doc_id}_sent{sent_idx}_prec' in st.session_state:
                 precision = round(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] * 100, 2)
             else:
                 precision = 0
-            st.write(f"{precision} %")
+            st.markdown(
+                f"<p style='font-size:20px;'>{precision}</p>", 
+                unsafe_allow_html=True
+            )
+
     
     if updated:
         _update_rec_eval(
@@ -263,7 +267,11 @@ def _display_placeholder_model(
         recall = round(st.session_state[f'{model_name}_{doc_id}_rec'] * 100, 2)
     else:
         recall = 0.
-    st.write(f"Recall = {recall} %")
+    # st.write(f"Recall = {recall} %")
+
+    _, col = st.columns([3, 8])
+    with col:
+        st.metric(label="Recall (%)", value=recall)
 
 
 def _update_prec_eval(

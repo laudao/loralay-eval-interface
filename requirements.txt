@@ -2,3 +2,4 @@ nltk
 streamlit
 st-click-detector
 st-annotated-text
+extra_streamlit_components
