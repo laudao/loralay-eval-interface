@@ -119,6 +119,8 @@ def _display_placeholder_model(
     layout_bigbird_n_sent,
     prec_results_dir,
     rec_results_dir,
+    gen_gold_results_dir,
+    correct_gen_results_dir,
     gold_samples,
     stopwords,
     placeholder_gold,
@@ -130,11 +132,7 @@ def _display_placeholder_model(
     text = gold_samples[doc_id].split()
 
     st.subheader(subheader_str)
-    st.info("""
-        Summary is split by sentence. 
-        Click on any sentence to color the corresponding words in the ground-truth abstract. 
-        Evaluate using per-sentence precision, recall, coherence, consistency, fluency, and relevance.
-    """)
+    
     
     def _update_gen_checkbox(sent_idx):
         for i in range(bigbird_n_sent):
@@ -144,13 +142,6 @@ def _display_placeholder_model(
             if model_name != "layout-bigbird" or i != sent_idx:
                 st.session_state[f"chk_layout-bigbird_{doc_id}_{i}"] = False
         
-    def _update_prec_eval(sent_idx):
-        if f"{model_name}_{doc_id}_sent{sent_idx}_prec_updated" not in st.session_state:
-            st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated'] = st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] 
-        st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated'] = st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] 
-        with open(os.path.join(prec_results_dir, f"{model_name}_{doc_id}_sent{sent_idx}_prec"), 'w') as fw:
-            fw.write(str(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec']) + "\n")
-
     def _highlight_and_color(sent_idx):
         colored_words = _color_in_gold_sample(
             gen_samples[doc_id][sent_idx],
@@ -176,13 +167,36 @@ def _display_placeholder_model(
                 text, 
                 text_to_highlight, 
                 colored_words, 
-                key=f"{model_name}_{doc_id}_{sent_idx}"
+                key=f"h_{model_name}_{doc_id}_{sent_idx}"
             )
             return highlighted
 
+    def _highlight(sent_idx, gen):
+        if f"{doc_id}_last_checked" not in st.session_state:
+            if f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen" in st.session_state:
+                text_to_highlight = st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen"]
+            else:
+                text_to_highlight = [False for _ in range(len(text))]
+        else:
+            if st.session_state[f"{doc_id}_last_checked"] != model_name + "_" + str(sent_idx):
+                if f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen" not in st.session_state:
+                    text_to_highlight = [False for _ in range(len(text))]
+                else:
+                    text_to_highlight = st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen"]
+            else:
+                text_to_highlight = [False for _ in range(len(text))]
+
+        highlighted = st_highlightable_text(
+            gen.split(), 
+            text_to_highlight, 
+            [], 
+            key=f"h_gen_{model_name}_{doc_id}_{sent_idx}"
+        )
+        return highlighted
+
     updated = False
     for sent_idx, sent in enumerate(gen_samples[doc_id]):
-        first_col, second_col, third_col = st.columns([1, 6, 7])
+        first_col, second_col, third_col = st.columns([1, 7, 2])
         with first_col:
             if sent_idx == 0:
                 st.markdown("\n")
@@ -202,22 +216,38 @@ def _display_placeholder_model(
                         gen_gold_results_dir
                     )
                     updated = True
-                st.session_state[f"{doc_id}_last_checked"] = model_name + "_" + str(sent_idx)
+                # st.session_state[f"{doc_id}_last_checked"] = model_name + "_" + str(sent_idx)
         with second_col:
             if sent_idx == 0:
                 st.markdown("**Sentence**")
-            st.markdown(sent)
+            # st.markdown(sent)
+            # highlighted_gen = st_highlightable_text(
+            #     sent.split(), [False for _ in range(len(sent.split()))], [], key=f"h_{model_name}_{doc_id}_{sent_idx}_gen"
+            # )
+            if st.session_state[f"chk_{model_name}_{doc_id}_{sent_idx}"]:
+                highlighted_gen = _highlight(sent_idx, sent)
+                if highlighted_gen is not None:
+                    st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen"] = highlighted_gen
+                    _update_correct_gen(
+                        highlighted_gen,
+                        model_name,
+                        doc_id,
+                        sent.split(),
+                        sent_idx,
+                        correct_gen_results_dir,
+                    )
+                    _update_prec_eval(sent_idx, sent.split(), model_name, doc_id, prec_results_dir)
+                st.session_state[f"{doc_id}_last_checked"] = model_name + "_" + str(sent_idx)
+            else:
+                st.markdown(sent)
         with third_col:
-            st.radio(
-                "Precision (%)", 
-                PREC_VALUES, 
-                key=f'{model_name}_{doc_id}_sent{sent_idx}_prec', 
-                on_change=_update_prec_eval, 
-                args=(sent_idx,),
-                index=0 if f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated' not in st.session_state else PREC_VALUES.index(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec_updated']),
-                label_visibility="visible" if sent_idx == 0 else "collapsed",
-                horizontal=True,
-            )
+            if sent_idx == 0:
+                st.markdown("**Precision**")
+            if f'{model_name}_{doc_id}_sent{sent_idx}_prec' in st.session_state:
+                precision = round(st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] * 100, 2)
+            else:
+                precision = 0
+            st.write(f"{precision} %")
     
     if updated:
         _update_rec_eval(
@@ -228,7 +258,45 @@ def _display_placeholder_model(
             rec_results_dir
         )
     if f'{model_name}_{doc_id}_rec' in st.session_state:
-        st.write(f"Recall = {round(st.session_state[f'{model_name}_{doc_id}_rec'] * 100, 2)} %")
+        recall = round(st.session_state[f'{model_name}_{doc_id}_rec'] * 100, 2)
+    else:
+        recall = 0.
+    st.write(f"Recall = {recall} %")
+
+
+def _update_prec_eval(
+    sent_idx,
+    sent,
+    model_name,
+    doc_id,
+    prec_results_dir,
+):
+    true_positive = st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen"].count(True)
+    precision = true_positive / len(sent)
+    st.session_state[f'{model_name}_{doc_id}_sent{sent_idx}_prec'] = precision
+    prec_output_file = os.path.join(prec_results_dir, f"{model_name}_{doc_id}_sent{sent_idx}_prec")
+    with open(prec_output_file, 'w') as fw:
+        fw.write(str(precision) + "\n")
+
+def _update_correct_gen(
+    highlighted,
+    model_name,
+    doc_id,
+    sent_words,
+    current_sent_idx,
+    correct_gen_dir,
+):
+    # Save current highlight
+    sent_highlighted_in_doc = f"{model_name}_{doc_id}_sent{current_sent_idx}_highlighted_gen"
+    st.session_state[sent_highlighted_in_doc] = highlighted
+
+    # Save highlighted words in gold sample
+    correct_gen_file = os.path.join(correct_gen_dir, f"{model_name}_{doc_id}_sent{current_sent_idx}_correct")
+    gen_correct = [sent_words[i] for i in range(len(sent_words)) if highlighted[i] == True]
+    gen_correct = " ".join(gen_correct)
+    with open(correct_gen_file, 'w') as fw:
+        fw.write(" ".join([str(b) for b in highlighted]) + "\n")
+        fw.write(gen_correct)
 
 
 def _update_rec_eval(
@@ -275,35 +343,37 @@ def _load_results_in_session_state(
     prec_results_dir, 
     rec_results_dir, 
     gen_gold_assoc_dir,
+    correct_gen_results_dir,
     unable_to_eval_file
 ):
     ccfr_results_files = os.listdir(ccfr_results_dir)
     prec_results_files = os.listdir(prec_results_dir)
     rec_results_files = os.listdir(rec_results_dir)
     gen_gold_assoc_files = os.listdir(gen_gold_assoc_dir)
+    correct_gen_assoc_files = os.listdir(correct_gen_results_dir)
 
     for filename in ccfr_results_files:
         model_name, doc_id, cat = filename.split("_")
         with open(os.path.join(ccfr_results_dir, filename), 'r') as f:
-            lines = f.readlines()
-        lines = [l.strip() for l in lines]
-        last_result = int(lines[-1])
+            line = f.read()
+        line = line.strip()
+        last_result = int(line)
         st.session_state[f'{model_name}_{doc_id}_{cat}_updated'] = last_result
 
     for filename in prec_results_files:
         model_name, doc_id, sent_idx, _ = filename.split("_")
         with open(os.path.join(prec_results_dir, filename), 'r') as f:
-            lines = f.readlines()
-        lines = [l.strip() for l in lines]
-        last_result = int(lines[-1])
-        st.session_state[f'{model_name}_{doc_id}_{sent_idx}_prec_updated'] = last_result
+            line = f.read()
+        line = line.strip()
+        last_result = float(line)
+        st.session_state[f'{model_name}_{doc_id}_{sent_idx}_prec'] = last_result
 
     for filename in rec_results_files:
         model_name, doc_id, _ = filename.split("_")
         with open(os.path.join(rec_results_dir, filename), 'r') as f:
-            lines = f.readlines()
-        lines = [l.strip() for l in lines]
-        last_result = float(lines[-1])
+            line = f.read()
+        line = line.strip()
+        last_result = float(line)
         st.session_state[f'{model_name}_{doc_id}_rec'] = last_result
 
     for filename in gen_gold_assoc_files:
@@ -314,6 +384,16 @@ def _load_results_in_session_state(
         highlight = lines[0].split()
         highlight = [True if h == "True" else False for h in highlight]
         st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted"] = highlight
+
+    for filename in correct_gen_assoc_files:
+        model_name, doc_id, sent_idx, _ = filename.split("_")
+        sent_idx = sent_idx.replace("sent", "")
+        with open(os.path.join(correct_gen_results_dir, filename), 'r') as f:
+            lines = f.readlines()
+        highlight = lines[0].split()
+        highlight = [True if h == "True" else False for h in highlight]
+        st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted_gen"] = highlight
+
 
     if os.path.isfile(unable_to_eval_file):
         with open(unable_to_eval_file, 'r') as f:
@@ -334,12 +414,22 @@ def loralay_eval_interface(
     prec_results_dir,
     rec_results_dir,
     gen_gold_results_dir,
+    correct_gen_results_dir,
     unable_to_eval_file,
     models_A,
     samples_titles,
     samples_urls,
 ):
     st.title("LoRaLay Evaluation Interface")
+    st.info("""
+        Welcome! You are going to evaluate summaries generated by two models (A and B). For each document, you can find below its ground-truth abstract and the summaries - split by sentence - generated from the corresponding article.\\
+            The instructions are as followed:\\
+                1) For each model and each sentence, click on the corresponding checkbox. The sentence's keywords are then shown in red in the ground-truth summary.\\
+                2) In the ground-truth abstract, highlight the information that can be found in the sentence.\\
+                3) In the sentence, highlight the information that can be found in the ground-truth abstract.\\
+                4) Assign consistency, coherence, fluency and relevance scores for the whole generated summary.\\
+            If you cannot evaluate the generated summaries, click on the `I am unable to evaluate this document` button. You will be able to skip to the next document. 
+    """)
     
     # Uncheck all radios
     st.markdown(
@@ -356,6 +446,7 @@ def loralay_eval_interface(
         prec_results_dir, 
         rec_results_dir, 
         gen_gold_results_dir,
+        correct_gen_results_dir,
         unable_to_eval_file
     )
 
@@ -378,7 +469,7 @@ def loralay_eval_interface(
     if doc_id in samples_titles:
         st.write(f"*{samples_titles[doc_id]}*")        
     if doc_id in samples_urls:
-        st.write(f"[Link to article]({samples_urls[doc_id]})")
+        st.write(f"[Link to full document]({samples_urls[doc_id]})")
 
     
     chosen_id = stx.tab_bar(data=[
@@ -413,6 +504,8 @@ def loralay_eval_interface(
             layout_bigbird_n_sent,
             prec_results_dir,
             rec_results_dir,
+            gen_gold_results_dir,
+            correct_gen_results_dir,
             gold_samples,
             stopwords,
             placeholder_gold_a,
@@ -429,6 +522,8 @@ def loralay_eval_interface(
             layout_bigbird_n_sent,
             prec_results_dir,
             rec_results_dir,
+            gen_gold_results_dir,
+            correct_gen_results_dir,
             gold_samples,
             stopwords,
             placeholder_gold_b,
@@ -481,13 +576,13 @@ def loralay_eval_interface(
     with right:
         if st.session_state.doc_idx < last_idx:
             next_is_disabled = False 
-            for bigbird_sent_idx, layout_bigbird_sent_idx in zip(range(bigbird_n_sent), range(layout_bigbird_n_sent)):
-                if f"bigbird_{doc_id}_sent{bigbird_sent_idx}_prec_updated" not in st.session_state:
-                    next_is_disabled = True 
-                    break
-                if f"layout-bigbird_{doc_id}_sent{layout_bigbird_sent_idx}_prec_updated" not in st.session_state:
-                    next_is_disabled = True 
-                    break
+            # for bigbird_sent_idx, layout_bigbird_sent_idx in zip(range(bigbird_n_sent), range(layout_bigbird_n_sent)):
+            #     if f"bigbird_{doc_id}_sent{bigbird_sent_idx}_prec" not in st.session_state:
+            #         next_is_disabled = True 
+            #         break
+            #     if f"layout-bigbird_{doc_id}_sent{layout_bigbird_sent_idx}_prec" not in st.session_state:
+            #         next_is_disabled = True 
+            #         break
             for cat in ["coh", "con", "flu", "rel"]:
                 if f"bigbird_{doc_id}_{cat}_updated" not in st.session_state:
                     next_is_disabled = True 
@@ -496,8 +591,8 @@ def loralay_eval_interface(
                     next_is_disabled = True 
                     break
             
-            # if f'unable_to_eval_{doc_id}_checked' in st.session_state and st.session_state[f'unable_to_eval_{doc_id}_checked']:
-            if st.session_state[f'chk_unable_to_eval_{doc_id}']:
+            if f'unable_to_eval_{doc_id}_checked' in st.session_state and st.session_state[f'unable_to_eval_{doc_id}_checked']:
+            # if st.session_state[f'chk_unable_to_eval_{doc_id}']:
                 next_is_disabled = False
             st.button('Next', on_click=_go_to_next, disabled=next_is_disabled)
 
@@ -523,9 +618,22 @@ def load_samples(samples, is_gold=False):
         samples_lang = None
         samples_titles = None
         samples_urls = None 
-    samples = {
-        sample["id"]: sample["abstract"].strip() if is_gold else sent_tokenize(sample["output"].strip()) for sample in samples
-    }
+    if is_gold:
+        samples = {
+            sample["id"]: sample["abstract"].strip() for sample in samples
+        }
+    else:
+        tmp_samples = samples.copy()
+        samples = dict()
+        for tmp_sample in tmp_samples: 
+            sentences = sent_tokenize(tmp_sample["output"].strip())
+            fixed_sentences = [sentences[0]]
+            for sent in sentences[1:]:
+                if sent[0].islower():
+                    fixed_sentences[-1] += " " + sent 
+                else:
+                    fixed_sentences.append(sent)
+            samples[tmp_sample["id"]] = fixed_sentences
     return samples, (samples_lang, samples_titles, samples_urls)
 
 
@@ -592,6 +700,7 @@ if __name__ == "__main__":
     prec_results_dir = os.path.join(args.results_dir, "precision_outputs")
     rec_results_dir = os.path.join(args.results_dir, "recall_outputs")
     gen_gold_results_dir = os.path.join(args.results_dir, "gen_gold_assoc")
+    correct_gen_results_dir = os.path.join(args.results_dir, "correct_gen")
     unable_to_eval_file = os.path.join(args.results_dir, "unable_to_eval.txt")
 
     @st.cache
@@ -607,11 +716,14 @@ if __name__ == "__main__":
                     shutil.rmtree(rec_results_dir)
                 if os.path.isdir(gen_gold_results_dir):
                     shutil.rmtree(gen_gold_results_dir)
+                if os.path.isdir(correct_gen_results_dir):
+                    shutil.rmtree(correct_gen_results_dir)
                 
                 os.makedirs(ccfr_results_dir)
                 os.makedirs(prec_results_dir)
                 os.makedirs(rec_results_dir)
                 os.makedirs(gen_gold_results_dir)
+                os.makedirs(correct_gen_results_dir)
                 if os.path.isfile("./last_doc_id.txt"):
                     os.remove("./last_doc_id.txt")
                 if os.path.isfile(unable_to_eval_file):
@@ -625,12 +737,15 @@ if __name__ == "__main__":
                     os.makedirs(rec_results_dir)
                 if not os.path.isdir(gen_gold_results_dir):
                     os.makedirs(gen_gold_results_dir)
+                if not os.path.isdir(correct_gen_results_dir):
+                    os.makedirs(correct_gen_results_dir)
         else:
             os.mkdir(args.results_dir)
             os.makedirs(ccfr_results_dir)
             os.makedirs(prec_results_dir)
             os.makedirs(rec_results_dir)
             os.makedirs(gen_gold_results_dir)
+            os.makedirs(correct_gen_results_dir)
 
     prepare_results_dir()
 
@@ -651,6 +766,7 @@ if __name__ == "__main__":
         prec_results_dir,
         rec_results_dir,
         gen_gold_results_dir,
+        correct_gen_results_dir,
         unable_to_eval_file,
         models_A,
         samples_titles,
