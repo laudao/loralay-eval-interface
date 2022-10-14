@@ -14,6 +14,8 @@ import nltk
 from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
 
+import numpy as np
+
 from difflib import SequenceMatcher
 
 try:
@@ -306,11 +308,17 @@ def _update_rec_eval(
     n_sent,
     rec_results_dir,
 ):
-    true_positive = 0
+    all_sent_highlighted = [False for _ in range(n_gold_words)]
+    # all_sent_highlighted = []
     for sent_idx in range(n_sent):
         if f"{model_name}_{doc_id}_sent{sent_idx}_highlighted" in st.session_state:
-            sent_highlighted = st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted"]
-            true_positive += sent_highlighted.count(True)
+            highlight = st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted"]
+            # all_sent_highlighted.append(st.session_state[f"{model_name}_{doc_id}_sent{sent_idx}_highlighted"])
+            all_sent_highlighted = np.logical_or(all_sent_highlighted, highlight)
+
+
+    # print(all_sent_highlighted)
+    true_positive = all_sent_highlighted.tolist().count(True)
     recall = true_positive / n_gold_words
     st.session_state[f'{model_name}_{doc_id}_rec'] = recall
     rec_output_file = os.path.join(rec_results_dir, f"{model_name}_{doc_id}_rec")
