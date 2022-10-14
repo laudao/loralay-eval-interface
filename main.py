@@ -73,7 +73,7 @@ def _create_radios(model_name, doc_id, results_dir):
         with open(os.path.join(results_dir, f"{model_name}_{doc_id}_rel"), 'w') as fw:
             fw.write(str(st.session_state[f'{model_name}_{doc_id}_rel']) + "\n")
 
-    _, center, _ = st.columns([3, 8, 1])
+    _, center, _ = st.columns([3, 8, 2])
 
     with center:
         st.radio(
