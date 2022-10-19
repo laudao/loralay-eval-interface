@@ -1,5 +1,3 @@
-![Alt text](/image.png?raw=true "Optional Title")
-
 ## Environment Setup
 ~~~shell
 $ conda create -n loralay-eval python=3.8
